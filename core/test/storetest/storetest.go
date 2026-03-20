@@ -8,8 +8,13 @@ import (
 	"github.com/google/uuid"
 
 	eventuous "github.com/eventuous/eventuous-go/core"
+	"github.com/eventuous/eventuous-go/core/codec"
 	"github.com/eventuous/eventuous-go/core/store"
 )
+
+// runID is generated once per process to ensure stream names are unique
+// across test runs, even against persistent stores like KurrentDB.
+var runID = uuid.New().String()[:8]
 
 // RunAll runs the full conformance suite against the given store.
 func RunAll(t *testing.T, s store.EventStore) {
@@ -23,10 +28,22 @@ func RunAll(t *testing.T, s store.EventStore) {
 	t.Run("TruncateStream", func(t *testing.T) { TestTruncateStream(t, s) })
 }
 
-// testEvent is a simple payload for conformance tests.
+// TestEvent is a simple payload for conformance tests.
+type TestEvent = testEvent
+
+// testEvent is the internal type used in conformance tests.
 type testEvent struct {
-	Index int
-	Data  string
+	Index int    `json:"index"`
+	Data  string `json:"data"`
+}
+
+// NewCodec creates a JSON codec with the conformance test event type registered.
+func NewCodec() codec.Codec {
+	tm := codec.NewTypeMap()
+	if err := codec.Register[testEvent](tm, "TestEvent"); err != nil {
+		panic(err)
+	}
+	return codec.NewJSON(tm)
 }
 
 // makeEvents creates n NewStreamEvent instances with sequential indices.
@@ -45,7 +62,9 @@ func makeEvents(n int) []store.NewStreamEvent {
 var streamCounter atomic.Uint64
 
 // uniqueStream returns a unique stream name for test isolation.
+// Names include a per-process UUID prefix so tests work against persistent
+// stores (like KurrentDB) that retain data across runs.
 func uniqueStream() eventuous.StreamName {
 	n := streamCounter.Add(1)
-	return eventuous.StreamName(fmt.Sprintf("test-stream-%d", n))
+	return eventuous.StreamName(fmt.Sprintf("test-%s-%d", runID, n))
 }
