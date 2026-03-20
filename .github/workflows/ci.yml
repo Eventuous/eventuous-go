@@ -5,10 +5,17 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+      - "LICENSE"
+      - ".gitignore"
   push:
     branches:
       - main
       - dev
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
 
 permissions:
   contents: read
