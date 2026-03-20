@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	eventuous "github.com/eventuous/eventuous-go/core"
+	"github.com/eventuous/eventuous-go/core/codec"
 	"github.com/eventuous/eventuous-go/core/store"
 	"github.com/eventuous/eventuous-go/core/subscription"
 )
@@ -19,6 +20,17 @@ type Config struct {
 
 	// NewAllSub creates a catch-up subscription for $all.
 	NewAllSub func(handler subscription.EventHandler, cs subscription.CheckpointStore) subscription.Subscription
+}
+
+// NewCodec creates a JSON codec with the conformance test event type registered.
+// External packages that wire the conformance suite must use this codec (or one
+// that includes the same type) when creating their event store.
+func NewCodec() codec.Codec {
+	tm := codec.NewTypeMap()
+	if err := codec.Register[testEvent](tm, "TestEvent"); err != nil {
+		panic(err)
+	}
+	return codec.NewJSON(tm)
 }
 
 // RunAll runs the subscription conformance suite.

@@ -15,11 +15,18 @@ import (
 	"github.com/eventuous/eventuous-go/core/subscription"
 )
 
-// testEvent is a simple payload for subscription conformance tests.
+// testEvent is the internal type used in subscription conformance tests.
 type testEvent struct {
-	Index int
-	Data  string
+	Index int    `json:"index"`
+	Data  string `json:"data"`
 }
+
+// TestEvent is the exported alias so external packages can build a matching codec.
+type TestEvent = testEvent
+
+// runID is generated once per process to ensure stream names are unique
+// across test runs, even against persistent stores like KurrentDB.
+var runID = uuid.New().String()[:8]
 
 // streamCounter generates unique stream names across parallel tests.
 var streamCounter atomic.Uint64
@@ -27,7 +34,7 @@ var streamCounter atomic.Uint64
 // uniqueStream returns a unique stream name for test isolation.
 func uniqueStream() eventuous.StreamName {
 	n := streamCounter.Add(1)
-	return eventuous.StreamName(fmt.Sprintf("subtest-stream-%d", n))
+	return eventuous.StreamName(fmt.Sprintf("subtest-%s-%d", runID, n))
 }
 
 // makeEvents creates n NewStreamEvent instances with sequential indices.
