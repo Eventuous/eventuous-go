@@ -163,8 +163,7 @@ otel/                     OpenTelemetry tracing + metrics
 
 ## Community
 
-- [Eventuous Slack](https://join.slack.com/t/eventuousworkspace/shared_invite/zt-tzrhtbxf-Tk7dSMuoVBvjkSf0Eq~Zpg)
-- [DDD-CQRS-ES Discord](https://discord.gg/P4WcBp8r)
+- [Eventuous Discord](https://discord.gg/ZrqM6vnnmf)
 - [Eventuous documentation](https://eventuous.dev)
 
 ## License
