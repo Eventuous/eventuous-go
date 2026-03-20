@@ -124,9 +124,13 @@ func (s *Store) ReadEventsBackwards(ctx context.Context, stream eventuous.Stream
 		return nil, fmt.Errorf("%w: %q", eventuous.ErrStreamNotFound, stream)
 	}
 
-	fromIdx := int(start)
-	if fromIdx >= len(events) {
+	// Guard against overflow when start is a sentinel "very large" value such
+	// as ^uint64(0). Use the last event index in that case.
+	var fromIdx int
+	if start >= uint64(len(events)) {
 		fromIdx = len(events) - 1
+	} else {
+		fromIdx = int(start)
 	}
 
 	// Collect up to count events going backwards from fromIdx.
