@@ -67,3 +67,58 @@ func WithFilter(filter *kurrentdb.SubscriptionFilter) CatchUpOption {
 		c.filter = filter
 	}
 }
+
+// --- Persistent subscription options ---
+
+type persistentConfig struct {
+	stream     *eventuous.StreamName         // nil = $all
+	handler    subscription.EventHandler
+	middleware []subscription.Middleware
+	bufferSize uint32
+	filter     *kurrentdb.SubscriptionFilter // for $all only
+}
+
+// PersistentOption configures a Persistent subscription.
+type PersistentOption func(*persistentConfig)
+
+// PersistentFromStream configures the persistent subscription to read from a single stream.
+func PersistentFromStream(name eventuous.StreamName) PersistentOption {
+	return func(c *persistentConfig) {
+		c.stream = &name
+	}
+}
+
+// PersistentFromAll configures the persistent subscription to read from the $all stream.
+func PersistentFromAll() PersistentOption {
+	return func(c *persistentConfig) {
+		c.stream = nil
+	}
+}
+
+// PersistentWithHandler sets the event handler for the persistent subscription.
+func PersistentWithHandler(h subscription.EventHandler) PersistentOption {
+	return func(c *persistentConfig) {
+		c.handler = h
+	}
+}
+
+// PersistentWithMiddleware adds middleware to the persistent subscription handler chain.
+func PersistentWithMiddleware(mw ...subscription.Middleware) PersistentOption {
+	return func(c *persistentConfig) {
+		c.middleware = append(c.middleware, mw...)
+	}
+}
+
+// PersistentWithBufferSize sets the buffer size for the persistent subscription connection.
+func PersistentWithBufferSize(size int) PersistentOption {
+	return func(c *persistentConfig) {
+		c.bufferSize = uint32(size)
+	}
+}
+
+// PersistentWithFilter sets a server-side filter for $all persistent subscriptions.
+func PersistentWithFilter(filter *kurrentdb.SubscriptionFilter) PersistentOption {
+	return func(c *persistentConfig) {
+		c.filter = filter
+	}
+}
