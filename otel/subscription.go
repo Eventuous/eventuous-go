@@ -27,6 +27,8 @@ func TracingMiddleware(tracer trace.Tracer) subscription.Middleware {
 			if err != nil {
 				span.SetStatus(codes.Error, err.Error())
 				span.RecordError(err)
+			} else {
+				span.SetStatus(codes.Ok, "")
 			}
 			return err
 		})
