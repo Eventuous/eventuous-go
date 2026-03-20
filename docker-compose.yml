@@ -1,0 +1,10 @@
+services:
+  kurrentdb:
+    image: eventstore/eventstore:24.10
+    ports:
+      - "2113:2113"
+    environment:
+      - EVENTSTORE_INSECURE=true
+      - EVENTSTORE_ENABLE_ATOM_PUB_OVER_HTTP=true
+      - EVENTSTORE_MEM_DB=true
+      - EVENTSTORE_RUN_PROJECTIONS=All
