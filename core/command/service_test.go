@@ -43,7 +43,9 @@ func registerBookRoom(svc *command.Service[testdomain.BookingState]) {
 func registerRecordPayment(svc *command.Service[testdomain.BookingState]) {
 	command.On(svc, command.Handler[testdomain.RecordPayment, testdomain.BookingState]{
 		Expected: eventuous.IsExisting,
-		Stream:   func(cmd testdomain.RecordPayment) eventuous.StreamName { return testdomain.BookingStream(cmd.BookingID) },
+		Stream: func(cmd testdomain.RecordPayment) eventuous.StreamName {
+			return testdomain.BookingStream(cmd.BookingID)
+		},
 		Act: func(ctx context.Context, state testdomain.BookingState, cmd testdomain.RecordPayment) ([]any, error) {
 			return []any{testdomain.PaymentRecorded{BookingID: cmd.BookingID, Amount: cmd.Amount}}, nil
 		},
@@ -53,7 +55,9 @@ func registerRecordPayment(svc *command.Service[testdomain.BookingState]) {
 func registerImportBooking(svc *command.Service[testdomain.BookingState]) {
 	command.On(svc, command.Handler[testdomain.ImportBooking, testdomain.BookingState]{
 		Expected: eventuous.IsAny,
-		Stream:   func(cmd testdomain.ImportBooking) eventuous.StreamName { return testdomain.BookingStream(cmd.BookingID) },
+		Stream: func(cmd testdomain.ImportBooking) eventuous.StreamName {
+			return testdomain.BookingStream(cmd.BookingID)
+		},
 		Act: func(ctx context.Context, state testdomain.BookingState, cmd testdomain.ImportBooking) ([]any, error) {
 			return []any{testdomain.BookingImported{BookingID: cmd.BookingID, RoomID: cmd.RoomID, Price: cmd.Price}}, nil
 		},

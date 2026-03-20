@@ -71,7 +71,7 @@ func WithFilter(filter *kurrentdb.SubscriptionFilter) CatchUpOption {
 // --- Persistent subscription options ---
 
 type persistentConfig struct {
-	stream     *eventuous.StreamName         // nil = $all
+	stream     *eventuous.StreamName // nil = $all
 	handler    subscription.EventHandler
 	middleware []subscription.Middleware
 	bufferSize uint32

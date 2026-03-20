@@ -85,7 +85,7 @@ func (svc *AggregateService[S]) Handle(ctx context.Context, command any) (*Resul
 		if err := agg.EnsureExists(); err != nil {
 			return nil, err
 		}
-	// IsAny: no guard needed.
+		// IsAny: no guard needed.
 	}
 
 	// Step 6: Execute domain logic.

@@ -15,17 +15,17 @@ type CheckpointCommitter struct {
 	batchSize      int
 	interval       time.Duration
 
-	mu                   sync.Mutex
-	pending              map[uint64]uint64 // sequence → position
-	lastCommittedSeq     uint64            // highest committed sequence (0 = nothing committed yet)
-	lastCommittedPos     uint64            // position associated with lastCommittedSeq
-	hasCommittedPos      bool              // true once we have a real position to commit
-	uncommittedSeq       uint64            // frontier of contiguous sequences we've seen but not yet stored
-	uncommittedPos       uint64            // position at the uncommitted frontier
-	hasUncommittedPos    bool              // true if we've advanced but haven't stored yet
-	count                int               // events accumulated since last actual store
-	lastCommitTime       time.Time
-	timer                *time.Timer
+	mu                sync.Mutex
+	pending           map[uint64]uint64 // sequence → position
+	lastCommittedSeq  uint64            // highest committed sequence (0 = nothing committed yet)
+	lastCommittedPos  uint64            // position associated with lastCommittedSeq
+	hasCommittedPos   bool              // true once we have a real position to commit
+	uncommittedSeq    uint64            // frontier of contiguous sequences we've seen but not yet stored
+	uncommittedPos    uint64            // position at the uncommitted frontier
+	hasUncommittedPos bool              // true if we've advanced but haven't stored yet
+	count             int               // events accumulated since last actual store
+	lastCommitTime    time.Time
+	timer             *time.Timer
 }
 
 // NewCheckpointCommitter creates a committer.

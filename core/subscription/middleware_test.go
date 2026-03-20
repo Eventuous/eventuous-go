@@ -133,7 +133,7 @@ func TestWithConcurrency_LimitsConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_ = handler.HandleEvent(context.Background(), makeMsg(eventuous.StreamName("stream-" + string(rune('A'+i)))))
+			_ = handler.HandleEvent(context.Background(), makeMsg(eventuous.StreamName("stream-"+string(rune('A'+i)))))
 		}(i)
 	}
 
