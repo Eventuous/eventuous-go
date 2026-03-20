@@ -177,9 +177,9 @@ func TestClearChanges_AdvancesVersion(t *testing.T) {
 // calls produce correct versions — this is the "reuse aggregate" scenario.
 func TestClearChanges_ThenApply(t *testing.T) {
 	a := newCounter()
-	a.Load(0, []any{incremented{}})   // version 0, count 1
-	a.Apply(incremented{})             // pending: 1 change, current version 1
-	a.ClearChanges()                   // version advances to 1
+	a.Load(0, []any{incremented{}}) // version 0, count 1
+	a.Apply(incremented{})          // pending: 1 change, current version 1
+	a.ClearChanges()                // version advances to 1
 
 	// Now apply more — simulates a second command on the same aggregate
 	a.Apply(incremented{})
