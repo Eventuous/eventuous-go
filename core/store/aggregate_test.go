@@ -124,6 +124,49 @@ func TestStoreAggregate_NoChanges(t *testing.T) {
 	}
 }
 
+// TestStoreAggregate_AggregateReusableAfterStore verifies that after a
+// successful StoreAggregate call, the same aggregate instance can be used for
+// another Apply+Store cycle without hitting ErrOptimisticConcurrency. Before
+// the fix, StoreAggregate didn't update the aggregate's version, so the second
+// store would send the stale original version.
+func TestStoreAggregate_AggregateReusableAfterStore(t *testing.T) {
+	s := memstore.New()
+	stream := eventuous.StreamName("counter-reuse")
+
+	agg := newCounterAggregate()
+	agg.Apply(added{})
+
+	// First store
+	_, err := store.StoreAggregate(context.Background(), s, stream, agg)
+	if err != nil {
+		t.Fatalf("first StoreAggregate: %v", err)
+	}
+
+	// Aggregate should now have version 0, no pending changes
+	if agg.OriginalVersion() != 0 {
+		t.Errorf("after first store: expected OriginalVersion 0, got %d", agg.OriginalVersion())
+	}
+	if len(agg.Changes()) != 0 {
+		t.Errorf("after first store: expected 0 changes, got %d", len(agg.Changes()))
+	}
+
+	// Apply another event and store again — must NOT fail
+	agg.Apply(added{})
+	_, err = store.StoreAggregate(context.Background(), s, stream, agg)
+	if err != nil {
+		t.Fatalf("second StoreAggregate should succeed but got: %v", err)
+	}
+
+	// Verify both events are in the stream
+	events, err := s.ReadEvents(context.Background(), stream, 0, 100)
+	if err != nil {
+		t.Fatalf("ReadEvents: %v", err)
+	}
+	if len(events) != 2 {
+		t.Errorf("expected 2 events in stream, got %d", len(events))
+	}
+}
+
 // TestStoreAggregate_OptimisticConcurrency: load, store, then try to store
 // the same (now stale) aggregate again → ErrOptimisticConcurrency.
 func TestStoreAggregate_OptimisticConcurrency(t *testing.T) {

@@ -6,6 +6,7 @@ package subscription_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -144,6 +145,51 @@ func TestWithConcurrency_LimitsConcurrency(t *testing.T) {
 
 	if got := maxSeen.Load(); got > limit {
 		t.Errorf("max concurrent = %d, want <= %d", got, limit)
+	}
+}
+
+// TestWithConcurrency_ReturnsHandlerError verifies that when the inner handler
+// returns an error, WithConcurrency propagates it to the caller rather than
+// swallowing it. This is critical for correct checkpointing and ack/nack:
+// a silently-dropped error means the subscription would ack an event that
+// actually failed processing.
+func TestWithConcurrency_ReturnsHandlerError(t *testing.T) {
+	wantErr := errors.New("handler failed")
+
+	failing := subscription.HandlerFunc(func(_ context.Context, _ *subscription.ConsumeContext) error {
+		return wantErr
+	})
+
+	handler := subscription.Chain(failing, subscription.WithConcurrency(2))
+
+	err := handler.HandleEvent(context.Background(), makeMsg("test-1"))
+	if !errors.Is(err, wantErr) {
+		t.Errorf("expected error %q, got %v", wantErr, err)
+	}
+}
+
+// TestWithConcurrency_BlocksUntilHandlerCompletes verifies that HandleEvent
+// does not return before the inner handler finishes. The old fire-and-forget
+// implementation returned nil immediately, which allowed the subscription to
+// checkpoint/ack before the handler had actually processed the event.
+func TestWithConcurrency_BlocksUntilHandlerCompletes(t *testing.T) {
+	var handlerDone atomic.Bool
+
+	slow := subscription.HandlerFunc(func(_ context.Context, _ *subscription.ConsumeContext) error {
+		time.Sleep(50 * time.Millisecond)
+		handlerDone.Store(true)
+		return nil
+	})
+
+	handler := subscription.Chain(slow, subscription.WithConcurrency(1))
+
+	err := handler.HandleEvent(context.Background(), makeMsg("test-1"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !handlerDone.Load() {
+		t.Error("HandleEvent returned before the inner handler completed")
 	}
 }
 

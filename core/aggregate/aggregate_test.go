@@ -143,6 +143,58 @@ func TestClearChanges(t *testing.T) {
 	}
 }
 
+// TestClearChanges_AdvancesVersion verifies that ClearChanges advances
+// OriginalVersion so the aggregate can be reused for another command cycle
+// without hitting stale version conflicts. Before the fix, ClearChanges only
+// zeroed the changes slice without updating the version.
+func TestClearChanges_AdvancesVersion(t *testing.T) {
+	a := newCounter()
+	a.Load(2, []any{incremented{}, incremented{}, incremented{}})
+	a.Apply(incremented{})
+	a.Apply(incremented{})
+
+	// Before clear: original=2, changes=2, current=4
+	if a.OriginalVersion() != 2 {
+		t.Fatalf("before clear: expected OriginalVersion 2, got %d", a.OriginalVersion())
+	}
+
+	a.ClearChanges()
+
+	// After clear: original should advance to 4 (was 2 + 2 changes)
+	if a.OriginalVersion() != 4 {
+		t.Errorf("after clear: expected OriginalVersion 4, got %d", a.OriginalVersion())
+	}
+	if len(a.Changes()) != 0 {
+		t.Errorf("expected 0 changes, got %d", len(a.Changes()))
+	}
+	// State should be preserved
+	if a.State().Count != 5 {
+		t.Errorf("expected State.Count 5, got %d", a.State().Count)
+	}
+}
+
+// TestClearChanges_ThenApply verifies that after ClearChanges, further Apply
+// calls produce correct versions — this is the "reuse aggregate" scenario.
+func TestClearChanges_ThenApply(t *testing.T) {
+	a := newCounter()
+	a.Load(0, []any{incremented{}})   // version 0, count 1
+	a.Apply(incremented{})             // pending: 1 change, current version 1
+	a.ClearChanges()                   // version advances to 1
+
+	// Now apply more — simulates a second command on the same aggregate
+	a.Apply(incremented{})
+
+	if a.OriginalVersion() != 1 {
+		t.Errorf("expected OriginalVersion 1, got %d", a.OriginalVersion())
+	}
+	if a.CurrentVersion() != 2 {
+		t.Errorf("expected CurrentVersion 2, got %d", a.CurrentVersion())
+	}
+	if a.State().Count != 3 {
+		t.Errorf("expected State.Count 3, got %d", a.State().Count)
+	}
+}
+
 // TestEnsureNew_OnNewAggregate verifies that EnsureNew returns nil for a fresh aggregate.
 func TestEnsureNew_OnNewAggregate(t *testing.T) {
 	a := newCounter()
