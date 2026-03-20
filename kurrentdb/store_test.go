@@ -9,6 +9,7 @@ import (
 
 func TestKurrentDBStore(t *testing.T) {
 	client := setupClient(t)
-	s := kdb.NewStore(client, storetest.NewCodec())
+	c := storetest.NewCodec()
+	s := kdb.NewStore(client, c)
 	storetest.RunAll(t, s)
 }
