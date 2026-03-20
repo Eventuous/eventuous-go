@@ -50,35 +50,33 @@ func WithLogging(logger *slog.Logger) Middleware {
 }
 
 // WithConcurrency processes events concurrently up to the given limit.
-// Uses a semaphore channel to bound concurrency. A WaitGroup ensures all
-// in-flight goroutines complete before the handler returns (on context
-// cancellation or error the semaphore drain still happens).
+// Uses a semaphore channel to bound concurrency. The handler blocks until
+// the event is actually processed, preserving error semantics needed for
+// correct checkpointing and ack/nack.
 func WithConcurrency(limit int) Middleware {
 	return func(next EventHandler) EventHandler {
 		sem := make(chan struct{}, limit)
-		var wg sync.WaitGroup
 
 		return HandlerFunc(func(ctx context.Context, msg *ConsumeContext) error {
 			// Acquire semaphore slot (blocks when at limit).
-			sem <- struct{}{}
-			wg.Add(1)
-
-			go func() {
-				defer func() {
-					<-sem // release slot
-					wg.Done()
-				}()
-				_ = next.HandleEvent(ctx, msg)
-			}()
-
-			// Wait for all goroutines when context is done.
 			select {
+			case sem <- struct{}{}:
 			case <-ctx.Done():
-				wg.Wait()
-			default:
+				return ctx.Err()
 			}
 
-			return nil
+			errCh := make(chan error, 1)
+			go func() {
+				defer func() { <-sem }() // release slot
+				errCh <- next.HandleEvent(ctx, msg)
+			}()
+
+			select {
+			case err := <-errCh:
+				return err
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		})
 	}
 }

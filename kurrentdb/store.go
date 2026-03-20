@@ -246,12 +246,49 @@ func (s *Store) DeleteStream(ctx context.Context, stream eventuous.StreamName, e
 // TruncateStream sets the TruncateBefore metadata on the stream so that events
 // before the given position are no longer returned. KurrentDB does not have a
 // dedicated truncate API, so we use stream metadata with $tb.
+//
+// The expected version is validated against the data stream first to honor
+// optimistic concurrency — if the stream version doesn't match, the truncation
+// is rejected before touching metadata.
 func (s *Store) TruncateStream(
 	ctx context.Context,
 	stream eventuous.StreamName,
 	position uint64,
 	expected eventuous.ExpectedVersion,
 ) error {
+	// Validate expected version against the data stream by attempting a
+	// no-op read. We read 1 event backwards to get the current stream
+	// version and compare.
+	if expected != eventuous.VersionAny {
+		rs, err := s.client.ReadStream(ctx, string(stream), kurrentdb.ReadStreamOptions{
+			From:      kurrentdb.End{},
+			Direction: kurrentdb.Backwards,
+		}, 1)
+		if err != nil {
+			if isStreamNotFound(err) {
+				if expected != eventuous.VersionNoStream {
+					return fmt.Errorf("kurrentdb: truncate stream %q: %w", stream, eventuous.ErrOptimisticConcurrency)
+				}
+			} else {
+				return fmt.Errorf("kurrentdb: truncate stream %q: %w", stream, err)
+			}
+		} else {
+			defer rs.Close()
+			event, err := rs.Recv()
+			if err != nil && !errors.Is(err, io.EOF) {
+				if isStreamNotFound(err) && expected != eventuous.VersionNoStream {
+					return fmt.Errorf("kurrentdb: truncate stream %q: %w", stream, eventuous.ErrOptimisticConcurrency)
+				}
+			}
+			if event != nil {
+				currentVersion := int64(event.Event.EventNumber)
+				if int64(expected) != currentVersion {
+					return fmt.Errorf("kurrentdb: truncate stream %q: %w", stream, eventuous.ErrOptimisticConcurrency)
+				}
+			}
+		}
+	}
+
 	meta := &kurrentdb.StreamMetadata{}
 	meta.SetTruncateBefore(position)
 

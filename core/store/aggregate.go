@@ -70,5 +70,14 @@ func StoreAggregate[S any](
 		expected = eventuous.ExpectedVersion(agg.OriginalVersion())
 	}
 
-	return writer.AppendEvents(ctx, stream, expected, events)
+	result, err := writer.AppendEvents(ctx, stream, expected, events)
+	if err != nil {
+		return AppendResult{}, err
+	}
+
+	// Clear pending changes and advance the version so the aggregate can be
+	// reused for further commands without stale version conflicts.
+	agg.ClearChanges()
+
+	return result, nil
 }

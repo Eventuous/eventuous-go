@@ -79,9 +79,12 @@ func (a *Aggregate[S]) Load(version int64, events []any) {
 	}
 }
 
-// ClearChanges resets the pending changes slice.  It is called by the event
-// store after the changes have been successfully persisted.
+// ClearChanges resets the pending changes slice and advances the original
+// version to the current version. Call this after the changes have been
+// successfully persisted so the aggregate can be reused for further commands
+// without hitting optimistic concurrency errors.
 func (a *Aggregate[S]) ClearChanges() {
+	a.originalVersion = a.originalVersion + int64(len(a.changes))
 	a.changes = nil
 }
 
