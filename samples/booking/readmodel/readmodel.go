@@ -120,9 +120,15 @@ func (rm *BookingReadModel) GetBooking(id string) (BookingDocument, bool) {
 	return doc, ok
 }
 
-// GetGuestBookings returns the list of bookings for a guest.
+// GetGuestBookings returns a copy of the bookings list for a guest.
 func (rm *BookingReadModel) GetGuestBookings(guestID string) []BookingSummary {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
-	return rm.guests[guestID]
+	src := rm.guests[guestID]
+	if src == nil {
+		return nil
+	}
+	out := make([]BookingSummary, len(src))
+	copy(out, src)
+	return out
 }

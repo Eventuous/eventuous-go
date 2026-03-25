@@ -98,6 +98,46 @@ func TestRecordPayment(t *testing.T) {
 	}
 }
 
+func TestCancelBooking(t *testing.T) {
+	mux, _ := setupRouter(t)
+
+	// First book a room.
+	body := `{"guestId":"g1","roomId":"r1","checkIn":"2026-04-01","checkOut":"2026-04-05","price":500,"currency":"USD"}`
+	req := httptest.NewRequest(http.MethodPost, "/bookings", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	var bookResp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &bookResp)
+	bookingID := bookResp["bookingId"].(string)
+
+	// Cancel booking.
+	cancelBody := `{"reason":"changed plans"}`
+	req = httptest.NewRequest(http.MethodPost, "/bookings/"+bookingID+"/cancel", bytes.NewBufferString(cancelBody))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRecordPayment_NotFound(t *testing.T) {
+	mux, _ := setupRouter(t)
+
+	payBody := `{"amount":200,"currency":"USD","paymentId":"p1"}`
+	req := httptest.NewRequest(http.MethodPost, "/bookings/nonexistent/payments", bytes.NewBufferString(payBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestGetBooking_NotFound(t *testing.T) {
 	mux, _ := setupRouter(t)
 
