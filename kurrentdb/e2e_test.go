@@ -29,7 +29,7 @@ func TestEndToEnd(t *testing.T) {
 	bookingID := "e2e-booking-" + uuid.New().String()[:8]
 
 	// 2. Create functional command service with the booking fold.
-	svc := command.New[testdomain.BookingState](store, store, testdomain.BookingFold, testdomain.BookingState{})
+	svc := command.New[testdomain.BookingState](store, store, testdomain.NewTypeMap(), testdomain.BookingFold, testdomain.BookingState{})
 
 	// Register BookRoom handler (stream must be new).
 	command.On(svc, command.Handler[testdomain.BookRoom, testdomain.BookingState]{
@@ -84,8 +84,8 @@ func TestEndToEnd(t *testing.T) {
 	if !result.State.Active {
 		t.Error("expected Active=true after BookRoom")
 	}
-	if len(result.NewEvents) != 1 {
-		t.Errorf("expected 1 new event from BookRoom, got %d", len(result.NewEvents))
+	if len(result.Changes) != 1 {
+		t.Errorf("expected 1 new event from BookRoom, got %d", len(result.Changes))
 	}
 
 	// 4. Handle RecordPayment command.

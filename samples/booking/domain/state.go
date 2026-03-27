@@ -5,16 +5,16 @@ package domain
 
 // BookingState is the write-side state reconstructed by folding events.
 type BookingState struct {
-	ID          string
-	GuestID     string
-	RoomID      string
-	CheckIn     string
-	CheckOut    string
-	Price       float64
-	Outstanding float64
-	Currency    string
-	Paid        bool
-	Cancelled   bool
+	ID          string  `json:"id"`
+	GuestID     string  `json:"guestId"`
+	RoomID      string  `json:"roomId"`
+	CheckIn     string  `json:"checkIn"`
+	CheckOut    string  `json:"checkOut"`
+	Price       float64 `json:"price"`
+	Outstanding float64 `json:"outstanding"`
+	Currency    string  `json:"currency"`
+	Paid        bool    `json:"paid"`
+	Cancelled   bool    `json:"cancelled"`
 }
 
 // BookingFold is the fold function used by the command service to reconstruct state.

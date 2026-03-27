@@ -16,7 +16,7 @@ import (
 )
 
 func newAggService(s *memstore.Store) *command.AggregateService[testdomain.BookingState] {
-	return command.NewAggregateService[testdomain.BookingState](s, s, testdomain.BookingFold, testdomain.BookingState{})
+	return command.NewAggregateService[testdomain.BookingState](s, s, testdomain.NewTypeMap(), testdomain.BookingFold, testdomain.BookingState{})
 }
 
 // aggStreamName returns the stream name as the AggregateService generates it.
@@ -79,8 +79,8 @@ func TestAggService_OnNew_Success(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	if len(result.NewEvents) != 1 {
-		t.Fatalf("expected 1 new event, got %d", len(result.NewEvents))
+	if len(result.Changes) != 1 {
+		t.Fatalf("expected 1 new event, got %d", len(result.Changes))
 	}
 	if result.State.RoomID != "room-42" {
 		t.Errorf("expected RoomID=room-42, got %s", result.State.RoomID)
@@ -127,8 +127,8 @@ func TestAggService_OnExisting_Success(t *testing.T) {
 	if result.State.AmountPaid != 100.0 {
 		t.Errorf("expected AmountPaid=100.0, got %f", result.State.AmountPaid)
 	}
-	if len(result.NewEvents) != 1 {
-		t.Fatalf("expected 1 new event, got %d", len(result.NewEvents))
+	if len(result.Changes) != 1 {
+		t.Fatalf("expected 1 new event, got %d", len(result.Changes))
 	}
 }
 
@@ -164,8 +164,8 @@ func TestAggService_OnAny_Works(t *testing.T) {
 		if result.State.RoomID != "room-5" {
 			t.Errorf("expected RoomID=room-5, got %s", result.State.RoomID)
 		}
-		if len(result.NewEvents) != 1 {
-			t.Fatalf("expected 1 new event, got %d", len(result.NewEvents))
+		if len(result.Changes) != 1 {
+			t.Fatalf("expected 1 new event, got %d", len(result.Changes))
 		}
 	})
 
@@ -183,8 +183,8 @@ func TestAggService_OnAny_Works(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(result.NewEvents) != 1 {
-			t.Fatalf("expected 1 new event, got %d", len(result.NewEvents))
+		if len(result.Changes) != 1 {
+			t.Fatalf("expected 1 new event, got %d", len(result.Changes))
 		}
 	})
 }
@@ -225,8 +225,8 @@ func TestAggService_NoOp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.NewEvents) != 0 {
-		t.Errorf("expected 0 new events, got %d", len(result.NewEvents))
+	if len(result.Changes) != 0 {
+		t.Errorf("expected 0 new events, got %d", len(result.Changes))
 	}
 	// Verify nothing was appended.
 	exists, _ := s.StreamExists(context.Background(), aggStreamName("noop-agg-booking"))

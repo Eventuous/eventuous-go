@@ -43,6 +43,11 @@ func NewCodec() codec.Codec {
 	return codec.NewJSON(NewTypeMap())
 }
 
+// NewCodecFromTypeMap creates a JSON codec from an existing TypeMap.
+func NewCodecFromTypeMap(tm *codec.TypeMap) codec.Codec {
+	return codec.NewJSON(tm)
+}
+
 func mustRegister[E any](tm *codec.TypeMap, name string) {
 	if err := codec.Register[E](tm, name); err != nil {
 		panic(err)

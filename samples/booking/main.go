@@ -40,14 +40,15 @@ func main() {
 		log.Fatalf("failed to create KurrentDB client: %v", err)
 	}
 
-	// 3. Codec.
-	codec := domain.NewCodec()
+	// 3. Type map and codec.
+	typeMap := domain.NewTypeMap()
+	jsonCodec := domain.NewCodecFromTypeMap(typeMap)
 
 	// 4. Event store.
-	store := kdb.NewStore(client, codec)
+	store := kdb.NewStore(client, jsonCodec)
 
 	// 5. Command service.
-	svc := command.New[domain.BookingState](store, store, domain.BookingFold, domain.BookingState{})
+	svc := command.New[domain.BookingState](store, store, typeMap, domain.BookingFold, domain.BookingState{})
 	command.On(svc, command.Handler[domain.BookRoom, domain.BookingState]{
 		Expected: eventuous.IsNew,
 		Stream:   func(cmd domain.BookRoom) eventuous.StreamName { return domain.BookingStream(cmd.BookingID) },
@@ -72,7 +73,7 @@ func main() {
 	defer stop()
 
 	// 8. Catch-up subscription.
-	sub := kdb.NewCatchUp(client, codec, "booking-projections",
+	sub := kdb.NewCatchUp(client, jsonCodec, "booking-projections",
 		kdb.WithHandler(rm),
 		kdb.WithMiddleware(subscription.WithLogging(slog.Default())),
 	)
