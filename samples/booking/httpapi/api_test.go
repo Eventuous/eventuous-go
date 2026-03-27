@@ -21,7 +21,7 @@ import (
 func setupRouter(t *testing.T) (*http.ServeMux, *readmodel.BookingReadModel) {
 	t.Helper()
 	store := memstore.New()
-	svc := command.New[domain.BookingState](store, store, domain.BookingFold, domain.BookingState{})
+	svc := command.New[domain.BookingState](store, store, domain.NewTypeMap(), domain.BookingFold, domain.BookingState{})
 	command.On(svc, command.Handler[domain.BookRoom, domain.BookingState]{
 		Expected: eventuous.IsNew,
 		Stream:   func(cmd domain.BookRoom) eventuous.StreamName { return domain.BookingStream(cmd.BookingID) },
@@ -61,8 +61,16 @@ func TestBookRoom(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("invalid JSON response: %v", err)
 	}
-	if resp["bookingId"] == nil || resp["bookingId"] == "" {
-		t.Error("expected bookingId in response")
+	state, ok := resp["state"].(map[string]any)
+	if !ok {
+		t.Fatal("expected state object in response")
+	}
+	if state["id"] == nil || state["id"] == "" {
+		t.Error("expected id in state")
+	}
+	changes, ok := resp["changes"].([]any)
+	if !ok || len(changes) != 1 {
+		t.Errorf("expected 1 change, got %v", resp["changes"])
 	}
 }
 
@@ -78,7 +86,7 @@ func TestRecordPayment(t *testing.T) {
 
 	var bookResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &bookResp)
-	bookingID := bookResp["bookingId"].(string)
+	bookingID := bookResp["state"].(map[string]any)["id"].(string)
 
 	// Record payment.
 	payBody := `{"amount":200,"currency":"USD","paymentId":"p1"}`
@@ -93,8 +101,9 @@ func TestRecordPayment(t *testing.T) {
 
 	var payResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &payResp)
-	if payResp["outstanding"].(float64) != 300 {
-		t.Errorf("expected outstanding=300, got %v", payResp["outstanding"])
+	payState := payResp["state"].(map[string]any)
+	if payState["outstanding"].(float64) != 300 {
+		t.Errorf("expected outstanding=300, got %v", payState["outstanding"])
 	}
 }
 
@@ -110,7 +119,7 @@ func TestCancelBooking(t *testing.T) {
 
 	var bookResp map[string]any
 	json.Unmarshal(w.Body.Bytes(), &bookResp)
-	bookingID := bookResp["bookingId"].(string)
+	bookingID := bookResp["state"].(map[string]any)["id"].(string)
 
 	// Cancel booking.
 	cancelBody := `{"reason":"changed plans"}`

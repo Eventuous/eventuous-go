@@ -60,10 +60,7 @@ func handleBookRoom(svc command.CommandHandler[domain.BookingState]) http.Handle
 			return
 		}
 
-		writeJSON(w, http.StatusCreated, map[string]any{
-			"bookingId":     bookingID,
-			"streamVersion": result.StreamVersion,
-		})
+		writeJSON(w, http.StatusCreated, newCommandResponse(result))
 	}
 }
 
@@ -93,11 +90,7 @@ func handleRecordPayment(svc command.CommandHandler[domain.BookingState]) http.H
 			return
 		}
 
-		writeJSON(w, http.StatusOK, map[string]any{
-			"bookingId":   bookingID,
-			"outstanding": result.State.Outstanding,
-			"paid":        result.State.Paid,
-		})
+		writeJSON(w, http.StatusOK, newCommandResponse(result))
 	}
 }
 
@@ -114,7 +107,7 @@ func handleCancelBooking(svc command.CommandHandler[domain.BookingState]) http.H
 			return
 		}
 
-		_, err := svc.Handle(r.Context(), domain.CancelBooking{
+		result, err := svc.Handle(r.Context(), domain.CancelBooking{
 			BookingID: bookingID,
 			Reason:    req.Reason,
 		})
@@ -123,7 +116,7 @@ func handleCancelBooking(svc command.CommandHandler[domain.BookingState]) http.H
 			return
 		}
 
-		w.WriteHeader(http.StatusOK)
+		writeJSON(w, http.StatusOK, newCommandResponse(result))
 	}
 }
 
@@ -147,6 +140,33 @@ func handleGetGuestBookings(rm *readmodel.BookingReadModel) http.HandlerFunc {
 			bookings = []readmodel.BookingSummary{}
 		}
 		writeJSON(w, http.StatusOK, bookings)
+	}
+}
+
+// commandResponse is the standard JSON envelope for command results,
+// matching the Eventuous .NET Result<TState>.Ok shape.
+type commandResponse struct {
+	State          any              `json:"state"`
+	Changes        []changeResponse `json:"changes"`
+	GlobalPosition uint64           `json:"globalPosition"`
+	StreamVersion  int64            `json:"streamVersion"`
+}
+
+type changeResponse struct {
+	Event     any    `json:"event"`
+	EventType string `json:"eventType"`
+}
+
+func newCommandResponse[S any](result *command.Result[S]) commandResponse {
+	changes := make([]changeResponse, len(result.Changes))
+	for i, c := range result.Changes {
+		changes[i] = changeResponse{Event: c.Event, EventType: c.EventType}
+	}
+	return commandResponse{
+		State:          result.State,
+		Changes:        changes,
+		GlobalPosition: result.GlobalPosition,
+		StreamVersion:  result.StreamVersion,
 	}
 }
 

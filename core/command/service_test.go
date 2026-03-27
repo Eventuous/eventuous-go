@@ -17,7 +17,7 @@ import (
 )
 
 func newService(s *memstore.Store) *command.Service[testdomain.BookingState] {
-	return command.New[testdomain.BookingState](s, s, testdomain.BookingFold, testdomain.BookingState{})
+	return command.New[testdomain.BookingState](s, s, testdomain.NewTypeMap(), testdomain.BookingFold, testdomain.BookingState{})
 }
 
 // seedEvents directly appends raw events to the memstore for test setup.
@@ -82,8 +82,8 @@ func TestService_OnNew_Success(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	if len(result.NewEvents) != 1 {
-		t.Fatalf("expected 1 new event, got %d", len(result.NewEvents))
+	if len(result.Changes) != 1 {
+		t.Fatalf("expected 1 new event, got %d", len(result.Changes))
 	}
 	if result.State.RoomID != "room-42" {
 		t.Errorf("expected RoomID=room-42, got %s", result.State.RoomID)
@@ -126,8 +126,8 @@ func TestService_OnExisting_Success(t *testing.T) {
 	if result.State.AmountPaid != 100.0 {
 		t.Errorf("expected AmountPaid=100.0, got %f", result.State.AmountPaid)
 	}
-	if len(result.NewEvents) != 1 {
-		t.Fatalf("expected 1 new event, got %d", len(result.NewEvents))
+	if len(result.Changes) != 1 {
+		t.Fatalf("expected 1 new event, got %d", len(result.Changes))
 	}
 }
 
@@ -176,8 +176,8 @@ func TestService_OnAny_ExistingStream(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.NewEvents) != 1 {
-		t.Fatalf("expected 1 new event, got %d", len(result.NewEvents))
+	if len(result.Changes) != 1 {
+		t.Fatalf("expected 1 new event, got %d", len(result.Changes))
 	}
 }
 
@@ -216,8 +216,8 @@ func TestService_NoOp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.NewEvents) != 0 {
-		t.Errorf("expected 0 new events, got %d", len(result.NewEvents))
+	if len(result.Changes) != 0 {
+		t.Errorf("expected 0 new events, got %d", len(result.Changes))
 	}
 	// Verify nothing was appended.
 	exists, _ := s.StreamExists(context.Background(), testdomain.BookingStream("noop-booking"))

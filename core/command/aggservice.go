@@ -5,10 +5,12 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	eventuous "github.com/eventuous/eventuous-go/core"
 	"github.com/eventuous/eventuous-go/core/aggregate"
+	"github.com/eventuous/eventuous-go/core/codec"
 	"github.com/eventuous/eventuous-go/core/store"
 )
 
@@ -17,6 +19,7 @@ import (
 type AggregateService[S any] struct {
 	reader   store.EventReader
 	writer   store.EventWriter
+	typeMap  *codec.TypeMap
 	fold     func(S, any) S
 	zero     S
 	handlers map[reflect.Type]untypedAggHandler[S]
@@ -30,15 +33,21 @@ type untypedAggHandler[S any] struct {
 }
 
 // NewAggregateService creates an aggregate-based command service.
+// Panics if reader, writer, or typeMap is nil.
 func NewAggregateService[S any](
 	reader store.EventReader,
 	writer store.EventWriter,
+	typeMap *codec.TypeMap,
 	fold func(S, any) S,
 	zero S,
 ) *AggregateService[S] {
+	if typeMap == nil {
+		panic("command: typeMap must not be nil")
+	}
 	return &AggregateService[S]{
 		reader:   reader,
 		writer:   writer,
+		typeMap:  typeMap,
 		fold:     fold,
 		zero:     zero,
 		handlers: make(map[reflect.Type]untypedAggHandler[S]),
@@ -97,11 +106,11 @@ func (svc *AggregateService[S]) Handle(ctx context.Context, command any) (*Resul
 	}
 
 	// Step 7: If no changes, return current state (no-op).
-	changes := agg.Changes()
-	if len(changes) == 0 {
+	rawChanges := agg.Changes()
+	if len(rawChanges) == 0 {
 		return &Result[S]{
 			State:         agg.State(),
-			NewEvents:     nil,
+			Changes:       nil,
 			StreamVersion: agg.OriginalVersion(),
 		}, nil
 	}
@@ -112,10 +121,19 @@ func (svc *AggregateService[S]) Handle(ctx context.Context, command any) (*Resul
 		return nil, err
 	}
 
-	// Step 9: Return result.
+	// Step 9: Build typed changes and return result.
+	changes := make([]Change, len(rawChanges))
+	for i, e := range rawChanges {
+		typeName, err := svc.typeMap.TypeName(e)
+		if err != nil {
+			return nil, fmt.Errorf("command: resolving event type: %w", err)
+		}
+		changes[i] = Change{Event: e, EventType: typeName}
+	}
+
 	return &Result[S]{
 		State:          agg.State(),
-		NewEvents:      changes,
+		Changes:        changes,
 		GlobalPosition: appendResult.GlobalPosition,
 		StreamVersion:  appendResult.NextExpectedVersion,
 	}, nil

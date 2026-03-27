@@ -5,9 +5,11 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	eventuous "github.com/eventuous/eventuous-go/core"
+	"github.com/eventuous/eventuous-go/core/codec"
 	"github.com/eventuous/eventuous-go/core/store"
 	"github.com/google/uuid"
 )
@@ -21,21 +23,28 @@ type CommandHandler[S any] interface {
 type Service[S any] struct {
 	reader   store.EventReader
 	writer   store.EventWriter
+	typeMap  *codec.TypeMap
 	fold     func(S, any) S
 	zero     S
 	handlers map[reflect.Type]untypedHandler[S]
 }
 
 // New creates a functional command service.
+// Panics if reader, writer, or typeMap is nil.
 func New[S any](
 	reader store.EventReader,
 	writer store.EventWriter,
+	typeMap *codec.TypeMap,
 	fold func(S, any) S,
 	zero S,
 ) *Service[S] {
+	if typeMap == nil {
+		panic("command: typeMap must not be nil")
+	}
 	return &Service[S]{
 		reader:   reader,
 		writer:   writer,
+		typeMap:  typeMap,
 		fold:     fold,
 		zero:     zero,
 		handlers: make(map[reflect.Type]untypedHandler[S]),
@@ -79,7 +88,7 @@ func (svc *Service[S]) Handle(ctx context.Context, command any) (*Result[S], err
 	if len(newEvents) == 0 {
 		return &Result[S]{
 			State:         state,
-			NewEvents:     nil,
+			Changes:       nil,
 			StreamVersion: int64(version),
 		}, nil
 	}
@@ -98,15 +107,21 @@ func (svc *Service[S]) Handle(ctx context.Context, command any) (*Result[S], err
 		return nil, err
 	}
 
-	// Step 7: Fold new events into state for the result.
-	for _, e := range newEvents {
+	// Step 7: Build changes and fold new events into state.
+	changes := make([]Change, len(newEvents))
+	for i, e := range newEvents {
+		typeName, err := svc.typeMap.TypeName(e)
+		if err != nil {
+			return nil, fmt.Errorf("command: resolving event type: %w", err)
+		}
+		changes[i] = Change{Event: e, EventType: typeName}
 		state = svc.fold(state, e)
 	}
 
 	// Step 8: Return Result[S].
 	return &Result[S]{
 		State:          state,
-		NewEvents:      newEvents,
+		Changes:        changes,
 		GlobalPosition: appendResult.GlobalPosition,
 		StreamVersion:  appendResult.NextExpectedVersion,
 	}, nil

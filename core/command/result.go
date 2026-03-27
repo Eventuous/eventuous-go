@@ -3,10 +3,16 @@
 
 package command
 
+// Change pairs a domain event with its registered type name.
+type Change struct {
+	Event     any
+	EventType string
+}
+
 // Result of a handled command.
 type Result[S any] struct {
 	State          S
-	NewEvents      []any
+	Changes        []Change
 	GlobalPosition uint64
 	StreamVersion  int64
 }
