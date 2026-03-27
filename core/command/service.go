@@ -5,6 +5,7 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	eventuous "github.com/eventuous/eventuous-go/core"
@@ -29,6 +30,7 @@ type Service[S any] struct {
 }
 
 // New creates a functional command service.
+// Panics if reader, writer, or typeMap is nil.
 func New[S any](
 	reader store.EventReader,
 	writer store.EventWriter,
@@ -36,6 +38,9 @@ func New[S any](
 	fold func(S, any) S,
 	zero S,
 ) *Service[S] {
+	if typeMap == nil {
+		panic("command: typeMap must not be nil")
+	}
 	return &Service[S]{
 		reader:   reader,
 		writer:   writer,
@@ -105,7 +110,10 @@ func (svc *Service[S]) Handle(ctx context.Context, command any) (*Result[S], err
 	// Step 7: Build changes and fold new events into state.
 	changes := make([]Change, len(newEvents))
 	for i, e := range newEvents {
-		typeName, _ := svc.typeMap.TypeName(e)
+		typeName, err := svc.typeMap.TypeName(e)
+		if err != nil {
+			return nil, fmt.Errorf("command: resolving event type: %w", err)
+		}
 		changes[i] = Change{Event: e, EventType: typeName}
 		state = svc.fold(state, e)
 	}

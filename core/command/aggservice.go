@@ -5,6 +5,7 @@ package command
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	eventuous "github.com/eventuous/eventuous-go/core"
@@ -32,6 +33,7 @@ type untypedAggHandler[S any] struct {
 }
 
 // NewAggregateService creates an aggregate-based command service.
+// Panics if reader, writer, or typeMap is nil.
 func NewAggregateService[S any](
 	reader store.EventReader,
 	writer store.EventWriter,
@@ -39,6 +41,9 @@ func NewAggregateService[S any](
 	fold func(S, any) S,
 	zero S,
 ) *AggregateService[S] {
+	if typeMap == nil {
+		panic("command: typeMap must not be nil")
+	}
 	return &AggregateService[S]{
 		reader:   reader,
 		writer:   writer,
@@ -119,7 +124,10 @@ func (svc *AggregateService[S]) Handle(ctx context.Context, command any) (*Resul
 	// Step 9: Build typed changes and return result.
 	changes := make([]Change, len(rawChanges))
 	for i, e := range rawChanges {
-		typeName, _ := svc.typeMap.TypeName(e)
+		typeName, err := svc.typeMap.TypeName(e)
+		if err != nil {
+			return nil, fmt.Errorf("command: resolving event type: %w", err)
+		}
 		changes[i] = Change{Event: e, EventType: typeName}
 	}
 
